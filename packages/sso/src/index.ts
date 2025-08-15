@@ -2,6 +2,7 @@ import { betterFetch, BetterFetchError } from "@better-fetch/fetch";
 import {
 	generateState,
 	type Account,
+	type Adapter,
 	type BetterAuthPlugin,
 	type OAuth2Tokens,
 	type Session,
@@ -163,6 +164,28 @@ export interface SSOOptions {
 	 */
 	trustEmailVerified?: boolean;
 }
+
+// From org adapter, not sure where to import getOrgAdapter from
+const checkMembership = async (
+	adapter: Adapter,
+	userId: string,
+	organizationId: string,
+) => {
+	const member = await adapter.findOne({
+		model: "member",
+		where: [
+			{
+				field: "userId",
+				value: userId,
+			},
+			{
+				field: "organizationId",
+				value: organizationId,
+			},
+		],
+	});
+	return member;
+};
 
 export const sso = (options?: SSOOptions) => {
 	return {
@@ -589,6 +612,29 @@ export const sso = (options?: SSOOptions) => {
 							message: "Invalid issuer. Must be a valid URL",
 						});
 					}
+					if (body.organizationId) {
+						const member = await checkMembership(
+							ctx.context.adapter,
+							user.id,
+							body.organizationId,
+						);
+						if (!member) {
+							const orgPlugin = ctx.context.options.plugins?.find(
+								(plugin) => plugin.id === "organization",
+							);
+							if (!orgPlugin) {
+								throw new APIError("INTERNAL_SERVER_ERROR", {
+									message:
+										"Organization plugin is not enabled but organizationId is provided",
+								});
+							}
+							throw new APIError("FORBIDDEN", {
+								message:
+									orgPlugin.$ERROR_CODES!
+										.USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION,
+							});
+						}
+					}
 					const provider = await ctx.context.adapter.create<
 						Record<string, any>,
 						SSOProvider
@@ -690,19 +736,12 @@ export const sso = (options?: SSOOptions) => {
 						},
 					];
 					if (organizationId) {
-						const member = await ctx.context.adapter.findOne({
-							model: "member",
-							where: [
-								{
-									field: "userId",
-									value: user.id,
-								},
-								{
-									field: "organizationId",
-									value: organizationId,
-								},
-							],
-						});
+						const member = await checkMembership(
+							ctx.context.adapter,
+							user.id,
+							organizationId,
+						);
+
 						if (!member) {
 							const orgPlugin = ctx.context.options.plugins?.find(
 								(plugin) => plugin.id === "organization",
