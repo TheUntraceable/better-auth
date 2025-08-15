@@ -5,6 +5,7 @@ import {
 	type OAuth2Tokens,
 	type Session,
 	type User,
+	type Where,
 } from "better-auth";
 import { APIError, sessionMiddleware } from "better-auth/api";
 import {
@@ -15,15 +16,15 @@ import {
 	validateToken,
 } from "better-auth/oauth2";
 
+import { betterFetch, BetterFetchError } from "@better-fetch/fetch";
+import { setSessionCookie } from "better-auth/cookies";
 import { createAuthEndpoint } from "better-auth/plugins";
-import * as z from "zod/v4";
+import { XMLValidator } from "fast-xml-parser";
+import { decodeJwt } from "jose";
 import * as saml from "samlify";
 import type { BindingContext } from "samlify/types/src/entity";
-import { betterFetch, BetterFetchError } from "@better-fetch/fetch";
-import { decodeJwt } from "jose";
-import { setSessionCookie } from "better-auth/cookies";
 import type { FlowResult } from "samlify/types/src/flow";
-import { XMLValidator } from "fast-xml-parser";
+import * as z from "zod/v4";
 
 const fastValidator = {
 	async validate(xml: string) {
@@ -655,6 +656,61 @@ export const sso = (options?: SSOOptions) => {
 						) as SAMLConfig,
 						redirectURI: `${ctx.context.baseURL}/sso/callback/${provider.providerId}`,
 					});
+				},
+			),
+			listSSOProviders: createAuthEndpoint(
+				"/sso/providers",
+				{
+					method: "GET",
+					query: z.object({
+						organizationId: z
+							.string({})
+							.meta({
+								description:
+									"If organization plugin is enabled, the organization id the providers belong to",
+							})
+							.optional(),
+					}),
+					metadata: {
+						openapi: {
+							summary: "List SSO providers",
+							description: "This endpoint is used to list all SSO providers.",
+						},
+					},
+				},
+				async (ctx) => {
+					const user = ctx.context.session?.user;
+					if (!user) {
+						throw new APIError("UNAUTHORIZED");
+					}
+					const organizationId = ctx.query.organizationId;
+					const query: Where[] = [
+						{
+							field: "userId",
+							value: user.id,
+						},
+					];
+					if (organizationId) {
+						query.push({
+							field: "organizationId",
+							value: organizationId,
+						});
+					}
+					const providers = await ctx.context.adapter.findMany<SSOProvider>({
+						model: "ssoProvider",
+						where: query,
+					});
+					return ctx.json(
+						providers.map((provider) => ({
+							...provider,
+							oidcConfig: provider.oidcConfig
+								? JSON.parse(provider.oidcConfig as unknown as string)
+								: null,
+							samlConfig: provider.samlConfig
+								? JSON.parse(provider.samlConfig as unknown as string)
+								: null,
+						})),
+					);
 				},
 			),
 			signInSSO: createAuthEndpoint(
