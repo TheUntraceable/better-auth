@@ -15,7 +15,6 @@ import {
 	validateAuthorizationCode,
 	validateToken,
 } from "better-auth/oauth2";
-
 import { betterFetch, BetterFetchError } from "@better-fetch/fetch";
 import { setSessionCookie } from "better-auth/cookies";
 import { createAuthEndpoint } from "better-auth/plugins";
@@ -691,6 +690,25 @@ export const sso = (options?: SSOOptions) => {
 						},
 					];
 					if (organizationId) {
+						const member = await ctx.context.adapter.findOne({
+							model: "member",
+							where: [
+								{
+									field: "userId",
+									value: user.id,
+								},
+								{
+									field: "organizationId",
+									value: organizationId,
+								},
+							],
+						});
+						if (!member) {
+							// Not sure how to get the error codes from organization plugin
+							throw new APIError("FORBIDDEN", {
+								message: "User is not a member of the organization",
+							});
+						}
 						query.push({
 							field: "organizationId",
 							value: organizationId,
