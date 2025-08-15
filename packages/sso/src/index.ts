@@ -1,3 +1,4 @@
+import { betterFetch, BetterFetchError } from "@better-fetch/fetch";
 import {
 	generateState,
 	type Account,
@@ -8,6 +9,7 @@ import {
 	type Where,
 } from "better-auth";
 import { APIError, sessionMiddleware } from "better-auth/api";
+import { setSessionCookie } from "better-auth/cookies";
 import {
 	createAuthorizationURL,
 	handleOAuthUserInfo,
@@ -15,8 +17,6 @@ import {
 	validateAuthorizationCode,
 	validateToken,
 } from "better-auth/oauth2";
-import { betterFetch, BetterFetchError } from "@better-fetch/fetch";
-import { setSessionCookie } from "better-auth/cookies";
 import { createAuthEndpoint } from "better-auth/plugins";
 import { XMLValidator } from "fast-xml-parser";
 import { decodeJwt } from "jose";
@@ -704,9 +704,19 @@ export const sso = (options?: SSOOptions) => {
 							],
 						});
 						if (!member) {
-							// Not sure how to get the error codes from organization plugin
+							const orgPlugin = ctx.context.options.plugins?.find(
+								(plugin) => plugin.id === "organization",
+							);
+							if (!orgPlugin) {
+								throw new APIError("INTERNAL_SERVER_ERROR", {
+									message:
+										"Organization plugin is not enabled but organizationId is provided",
+								});
+							}
 							throw new APIError("FORBIDDEN", {
-								message: "User is not a member of the organization",
+								message:
+									orgPlugin.$ERROR_CODES!
+										.USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION,
 							});
 						}
 						query.push({
