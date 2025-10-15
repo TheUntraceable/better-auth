@@ -634,7 +634,7 @@ oauthProvider({
 
 #### Dynamic Client Registration Expiration
 
-You can additionally set an expiration time for how long a confidential client should last for. By default, dynamically registered confidential clients do not expire.
+You can set an expiration time for how long a dynamically registered confidential client should last for. By default, dynamically registered confidential clients do not expire.
 
 ```ts title="auth.ts"
 oauthProvider({
@@ -905,12 +905,16 @@ If you are using "openid" and confidential MCP clients, you cannot disable the J
     - Using `mcpHandler` helper
 
     ```ts title="api/[transport]/route.ts"
-    import { auth } from "@/lib/auth";
     import { createMcpHandler } from "@vercel/mcp-adapter";
     import { mcpHandler } from "better-auth/plugins";
     import { z } from "zod";
 
-    const handler = mcpHandler(auth, (req, jwt) => {
+    const handler = mcpHandler({
+      verifyOptions: {
+        issuer: "https://auth.example.com",
+        audience: "https://api.example.com",
+      },
+    }, (req, jwt) => {
       return createMcpHandler(
         (server) => {
           server.tool(
@@ -965,19 +969,19 @@ Table Name: `oauthClient`
       name: "id",
       type: "string",
       description: "Database ID of the OAuth client",
-      isPrimaryKey: true
+      isPrimaryKey: true,
     },
     {
       name: "clientId",
       type: "string",
       description: "Unique identifier for each OAuth client",
-      isPrimaryKey: true
+      isPrimaryKey: true,
     },
     {
       name: "clientSecret",
       type: "string",
       description: "Secret key for the OAuth client. Optional for public clients using PKCE.",
-      isOptional: true
+      isOptional: true,
     },
     {
       name: "disabled",
@@ -995,23 +999,26 @@ Table Name: `oauthClient`
       name: "userId",
       type: "string",
       description: "ID of the client owner. (optional)",
-      isOptional: true
+      isOptional: true,
+      isForeignKey: true,
+      references: { model: "user", field: "id" },
     },
     {
       name: "referenceId",
       type: "string",
       description: "ID of the reference of the client owner if not a user. (optional)",
-      isOptional: true
+      isOptional: true,
+      isForeignKey: true,
     },
     {
       name: "createdAt",
       type: "Date",
-      description: "Timestamp of when the OAuth client was created" 
+      description: "Timestamp of when the OAuth client was created",
     },
     {
       name: "updatedAt",
       type: "Date",
-      description: "Timestamp of when the OAuth client was last updated"
+      description: "Timestamp of when the OAuth client was last updated",
     },
     {
       name: "name",
@@ -1112,7 +1119,7 @@ Table Name: `oauthClient`
   ]}
 />
 
-### Session
+### OAuth Refresh Token
 
 Table Name: `oauthRefreshToken`
 
@@ -1122,7 +1129,7 @@ Table Name: `oauthRefreshToken`
       name: "id",
       type: "string",
       description: "Database ID of the refresh token",
-      isPrimaryKey: true
+      isPrimaryKey: true,
     },
     {
       name: "token",
@@ -1136,7 +1143,7 @@ Table Name: `oauthRefreshToken`
       description: "ID of the OAuth client",
       isForeignKey: true,
       isRequired: true,
-      references: { model: "oauthClient", field: "clientId" }
+      references: { model: "oauthClient", field: "clientId" },
     },
     {
       name: "sessionId",
@@ -1163,7 +1170,7 @@ Table Name: `oauthRefreshToken`
     {
       name: "createdAt",
       type: "Date",
-      description: "Timestamp when the access token was created" 
+      description: "Timestamp when the access token was created",
     },
     {
       name: "expiresAt",
@@ -1183,8 +1190,7 @@ Table Name: `oauthAccessToken`
       name: "id",
       type: "string",
       description: "Database ID of the opaque access token",
-      isPrimaryKey: true
-      isRequired: true,
+      isPrimaryKey: true,
     },
     {
       name: "token",
@@ -1304,7 +1310,7 @@ To improve lookup performance, map the field `client_id` on the table `oauthClie
 
 ## Migrations
 
-### From [OIDC Provider](/docs/plugins/oidc-provider)
+### From [OIDC Provider Plugin](/docs/plugins/oidc-provider)
 
 #### Configuration
 
@@ -1371,7 +1377,7 @@ Option 2 (more complex):
 ```
 
 
-### From [MCP Provider](/docs/plugins/oidc-provider) to this oAuth2.1 provider
+### From [MCP Plugin](/docs/plugins/oidc-provider)
 
 The MCP endpoints moved from `/mcp` to the `/oauth2` equivalent.
 
@@ -1382,7 +1388,7 @@ The MCP endpoints moved from `/mcp` to the `/oauth2` equivalent.
 - `/.well-known/oauth-protected-resource` removed, use the helper `mcpHandler` (or manually with the server `api.oAuth2introspectVerify` or the client `verifyAccessToken`)
 
 
-### From [API Key](/docs/plugins/api-key)
+### From [API Key Plugin](/docs/plugins/api-key)
 
 This oAuth plugin provides additional security benefits over API Keys such as short-lived access tokens, key rotation, and centralized revocation.
 
