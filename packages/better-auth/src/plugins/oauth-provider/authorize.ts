@@ -307,15 +307,11 @@ async function redirectWithAuthorizationCode(
 		? await ctx.context.internalAdapter.updateVerificationValue(
 				ctx.context.verification_id,
 				data,
-				ctx,
 			)
-		: await ctx.context.internalAdapter.createVerificationValue(
-				{
-					...data,
-					createdAt: new Date(iat * 1000),
-				},
-				ctx,
-			);
+		: await ctx.context.internalAdapter.createVerificationValue({
+				...data,
+				createdAt: new Date(iat * 1000),
+			});
 
 	const redirectUriWithCode = new URL(verificationValue.query.redirect_uri);
 	redirectUriWithCode.searchParams.set("code", code);
@@ -357,15 +353,11 @@ async function redirectWithPromptCode(
 		? await ctx.context.internalAdapter.updateVerificationValue(
 				ctx.context.verification_id,
 				data,
-				ctx,
 			)
-		: await ctx.context.internalAdapter.createVerificationValue(
-				{
-					...data,
-					createdAt: new Date(iat * 1000),
-				},
-				ctx,
-			);
+		: await ctx.context.internalAdapter.createVerificationValue({
+				...data,
+				createdAt: new Date(iat * 1000),
+			});
 
 	const { name: cookieName, attributes: cookieAttributes } =
 		ctx.context.createAuthCookie(`oauth_${type}`);
