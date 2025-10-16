@@ -115,12 +115,12 @@ export interface OAuthOptions {
 	 * and the owner is defined under the field `reference_id`.
 	 *
 	 * With the organization plugin: @example ({ session }) => {
-	 * 	return session?.activeOrganizationId;
+	 * 	return session?.reference_id;
 	 * }
 	 */
 	clientRegistrationReference?: (context: {
-		user: User;
-		session: Session;
+		user?: User & Record<string, unknown>;
+		session?: Session & Record<string, unknown>;
 	}) => Awaitable<string | undefined>;
 	/**
 	 * List of scopes a newly registered client can have.
@@ -188,8 +188,8 @@ export interface OAuthOptions {
 	 */
 	selectedAccount?: (context: {
 		client: SchemaClient;
-		user: User;
-		session: Session;
+		user: User & Record<string, unknown>;
+		session: Session & Record<string, unknown>;
 		scopes: string[];
 	}) => Awaitable<boolean>;
 	/**
@@ -278,7 +278,7 @@ export interface OAuthOptions {
 	 */
 	customUserInfoClaims?: (info?: {
 		/** The user object */
-		user: User;
+		user: User & Record<string, unknown>;
 		/** The scopes from the access token used
 		 * in the /userinfo request (matches jwt.scopes) */
 		scopes: string[];
@@ -297,7 +297,7 @@ export interface OAuthOptions {
 	 */
 	customIdTokenClaims?: (info?: {
 		/** The user object if token is associated to a user. */
-		user: User;
+		user: User & Record<string, unknown>;
 		/** Scopes granted for this token */
 		scopes: string[];
 		/** oAuthClient metadata */
@@ -320,7 +320,7 @@ export interface OAuthOptions {
 	 */
 	customAccessTokenClaims?: (info?: {
 		/** The user object if token is associated to a user. Null if user doesn't exist. Undefined if user not applicable. */
-		user?: User | null;
+		user?: (User & Record<string, unknown>) | null;
 		/** Scopes granted for this token */
 		scopes: string[];
 		/** The resource requesting. */

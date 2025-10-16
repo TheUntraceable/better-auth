@@ -47,6 +47,7 @@ export const createOAuthClient = (opts: OAuthOptions) =>
 					.optional(),
 				type: z.enum(["web", "native", "user-agent-based"]).optional(),
 				// SERVER_ONLY applicable fields
+				client_secret_expires_at: z.union([z.string(), z.number()]).optional(),
 				skip_consent: z.boolean().optional(),
 				metadata: z.object().optional(),
 			}),
@@ -203,7 +204,9 @@ export const createOAuthClient = (opts: OAuthOptions) =>
 			},
 		},
 		async (ctx) => {
-			return createOAuthClientEndpoint(ctx, opts);
+			return createOAuthClientEndpoint(ctx, opts, {
+				isRegister: false,
+			});
 		},
 	);
 
@@ -279,6 +282,7 @@ export const updateOAuthClient = (opts: OAuthOptions) =>
 					.default(["code"])
 					.optional(),
 				type: z.enum(["web", "native", "user-agent-based"]).optional(),
+				// SERVER_ONLY applicable fields
 				skip_consent: z.boolean().optional(),
 				metadata: z.object().optional(),
 			}),

@@ -42,12 +42,17 @@ export async function registerEndpoint(
 		});
 	}
 
-	return createOAuthClientEndpoint(ctx, opts);
+	return createOAuthClientEndpoint(ctx, opts, {
+		isRegister: true,
+	});
 }
 
 export async function checkOAuthClient(
 	client: OAuthClient,
 	opts: OAuthOptions,
+	settings?: {
+		isRegister?: boolean;
+	},
 ) {
 	// Determine whether registration request for public client
 	// https://datatracker.ietf.org/doc/html/rfc7591#section-2
@@ -102,7 +107,9 @@ export async function checkOAuthClient(
 	const requestedScopes = (client?.scope as string | undefined)
 		?.split(" ")
 		.filter((v) => v.length);
-	const allowedScopes = opts.clientRegistrationAllowedScopes ?? opts.scopes;
+	const allowedScopes = settings?.isRegister
+		? (opts.clientRegistrationAllowedScopes ?? opts.scopes)
+		: opts.scopes;
 	if (allowedScopes) {
 		for (const requestedScope of requestedScopes ?? []) {
 			if (!allowedScopes?.includes(requestedScope)) {
@@ -118,6 +125,9 @@ export async function checkOAuthClient(
 export async function createOAuthClientEndpoint(
 	ctx: GenericEndpointContext,
 	opts: OAuthOptions,
+	settings: {
+		isRegister: boolean;
+	},
 ) {
 	const body = ctx.body as OAuthClient;
 	const session = await getSessionFromCtx(ctx);
@@ -127,7 +137,7 @@ export async function createOAuthClientEndpoint(
 	const isPublic = body.token_endpoint_auth_method === "none";
 
 	// Check if client parameters are valid combination
-	await checkOAuthClient(ctx.body, opts);
+	await checkOAuthClient(ctx.body, opts, settings);
 
 	// Generate clientId and clientSecret based on its type
 	const clientId =
@@ -141,6 +151,12 @@ export async function createOAuthClientEndpoint(
 
 	// Create the client with the existing schema
 	const iat = Math.floor(Date.now() / 1000);
+	const referenceId = opts.clientRegistrationReference
+		? await opts.clientRegistrationReference({
+				user: session?.user,
+				session: session?.session,
+			})
+		: undefined;
 	let schema = oauthToSchema(
 		{
 			scope: opts.clientRegistrationDefaultScopes?.join(" "),
@@ -152,7 +168,7 @@ export async function createOAuthClientEndpoint(
 			jwks_uri: undefined,
 			// Required if client secret is issued
 			client_secret_expires_at: storedClientSecret
-				? opts?.clientRegistrationClientSecretExpiration
+				? settings.isRegister && opts?.clientRegistrationClientSecretExpiration
 					? toExpJWT(opts.clientRegistrationClientSecretExpiration, iat)
 					: 0
 				: undefined,
@@ -161,10 +177,8 @@ export async function createOAuthClientEndpoint(
 			client_secret: storedClientSecret,
 			client_id_issued_at: iat,
 			public: isPublic,
-			user_id: session?.session?.activeOrganizationId
-				? undefined
-				: session?.session.userId,
-			reference_id: session?.session?.activeOrganizationId,
+			user_id: referenceId ? undefined : session?.session.userId,
+			reference_id: referenceId,
 		},
 		true,
 	);

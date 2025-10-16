@@ -39,12 +39,13 @@ import { selectedAccountEndpoint } from "./selectedAccount";
 export const oauthProvider = (options: OAuthOptions) => {
 	let clientRegistrationAllowedScopes = options.clientRegistrationAllowedScopes;
 	if (options.clientRegistrationDefaultScopes) {
-		clientRegistrationAllowedScopes = clientRegistrationAllowedScopes
-			? [
+		const _allowedScopes = clientRegistrationAllowedScopes
+			? new Set([
 					...clientRegistrationAllowedScopes,
 					...options.clientRegistrationDefaultScopes,
-				]
-			: [...options.clientRegistrationDefaultScopes];
+				])
+			: new Set([...options.clientRegistrationDefaultScopes]);
+		clientRegistrationAllowedScopes = Array.from(_allowedScopes);
 	}
 
 	// Validate scopes
