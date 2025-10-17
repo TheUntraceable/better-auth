@@ -157,31 +157,28 @@ export async function createOAuthClientEndpoint(
 				session: session?.session,
 			})
 		: undefined;
-	let schema = oauthToSchema(
-		{
-			scope: opts.clientRegistrationDefaultScopes?.join(" "),
-			...((body ?? {}) as Partial<OAuthClient>),
-			// Dynamic registration should not have disabled defined
-			disabled: undefined,
-			// Jwks unsupported
-			jwks: undefined,
-			jwks_uri: undefined,
-			// Required if client secret is issued
-			client_secret_expires_at: storedClientSecret
-				? settings.isRegister && opts?.clientRegistrationClientSecretExpiration
-					? toExpJWT(opts.clientRegistrationClientSecretExpiration, iat)
-					: 0
-				: undefined,
-			// Override
-			client_id: clientId,
-			client_secret: storedClientSecret,
-			client_id_issued_at: iat,
-			public: isPublic,
-			user_id: referenceId ? undefined : session?.session.userId,
-			reference_id: referenceId,
-		},
-		true,
-	);
+	let schema = oauthToSchema({
+		scope: opts.clientRegistrationDefaultScopes?.join(" "),
+		...((body ?? {}) as Partial<OAuthClient>),
+		// Dynamic registration should not have disabled defined
+		disabled: undefined,
+		// Jwks unsupported
+		jwks: undefined,
+		jwks_uri: undefined,
+		// Required if client secret is issued
+		client_secret_expires_at: storedClientSecret
+			? settings.isRegister && opts?.clientRegistrationClientSecretExpiration
+				? toExpJWT(opts.clientRegistrationClientSecretExpiration, iat)
+				: 0
+			: undefined,
+		// Override
+		client_id: clientId,
+		client_secret: storedClientSecret,
+		client_id_issued_at: iat,
+		public: isPublic,
+		user_id: referenceId ? undefined : session?.session.userId,
+		reference_id: referenceId,
+	});
 	const client = await ctx.context.adapter
 		.create<DatabaseClient>({
 			model: opts.schema?.oauthClient?.modelName ?? "oauthClient",
@@ -192,15 +189,12 @@ export async function createOAuthClientEndpoint(
 		});
 	// Format the response according to RFC7591
 	return ctx.json(
-		schemaToOAuth(
-			{
-				...client,
-				clientSecret: clientSecret
-					? (opts.clientSecretPrefix ?? "") + clientSecret
-					: undefined,
-			},
-			true,
-		),
+		schemaToOAuth({
+			...client,
+			clientSecret: clientSecret
+				? (opts.clientSecretPrefix ?? "") + clientSecret
+				: undefined,
+		}),
 		{
 			status: 201,
 			headers: {
@@ -242,11 +236,11 @@ export interface DatabaseClient
 export function databaseToSchema(input: DatabaseClient): SchemaClient {
 	return {
 		...input,
-		allowedScopes: input.allowedScopes?.split(" "),
-		contacts: input.contacts?.split(","),
-		redirectUris: input.redirectUris?.split(","),
-		grantTypes: input.grantTypes?.split(",") as SchemaClient["grantTypes"],
-		responseTypes: input.responseTypes?.split(
+		allowedScopes: input?.allowedScopes?.split(" "),
+		contacts: input?.contacts?.split(","),
+		redirectUris: input?.redirectUris?.split(","),
+		grantTypes: input?.grantTypes?.split(",") as SchemaClient["grantTypes"],
+		responseTypes: input?.responseTypes?.split(
 			",",
 		) as SchemaClient["responseTypes"],
 	};
@@ -273,13 +267,9 @@ export function schemaToDatabase(input: SchemaClient): DatabaseClient {
  * Converts an OAuth 2.0 Dynamic Client Schema to a Database Schema
  *
  * @param input
- * @param cleaned - determines if the `rest` is converted into metadata
  * @returns
  */
-export function oauthToSchema(
-	input: OAuthClient,
-	cleaned = true,
-): SchemaClient {
+export function oauthToSchema(input: OAuthClient): SchemaClient {
 	const {
 		// Important Fields
 		client_id: clientId,
@@ -323,6 +313,8 @@ export function oauthToSchema(
 	const expiresAt = _expiresAt ? new Date(_expiresAt * 1000) : undefined;
 	const createdAt = _createdAt ? new Date(_createdAt * 1000) : undefined;
 	const allowedScopes = _scope?.split(" ");
+	const metadata =
+		rest && Object.keys(rest).length ? JSON.stringify(rest) : undefined;
 
 	return {
 		// Important Fields
@@ -356,20 +348,17 @@ export function oauthToSchema(
 		// All other metadata
 		skipConsent,
 		referenceId,
-		metadata: cleaned ? undefined : JSON.stringify(rest),
+		metadata,
 	};
 }
 
 /**
  * Converts a Database Schema to an OAuth 2.0 Dynamic Client Schema
  * @param input
- * @param cleaned - determines if the output has only Oauth 2.0 compatible data
+ * @param cleaned - default true, determines if the output has only Oauth 2.0 compatible data
  * @returns
  */
-export function schemaToOAuth(
-	input: SchemaClient,
-	cleaned = true,
-): OAuthClient {
+export function schemaToOAuth(input: SchemaClient): OAuthClient {
 	const {
 		// Important Fields
 		clientId,
@@ -414,11 +403,11 @@ export function schemaToOAuth(
 		? Math.round(createdAt.getTime() / 1000)
 		: undefined;
 	const _allowedScopes = allowedScopes?.join(" ");
-	const rest = metadata ? JSON.parse(metadata) : undefined;
+	const _metadata = metadata ? JSON.parse(metadata) : undefined;
 
 	return {
 		// All other metadata
-		...(cleaned ? undefined : rest),
+		..._metadata,
 		// Important Fields
 		client_id: clientId,
 		client_secret: clientSecret,

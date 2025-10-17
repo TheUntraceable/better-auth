@@ -276,7 +276,8 @@ export interface OAuthClient {
 	disabled?: boolean;
 	skip_consent?: boolean;
 	//---- All other metadata ----//
-	[key: string]: any;
+	reference_id?: string;
+	[key: string]: unknown;
 }
 
 /**

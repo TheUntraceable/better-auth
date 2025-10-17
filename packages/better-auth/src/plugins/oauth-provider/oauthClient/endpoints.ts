@@ -25,10 +25,9 @@ export async function getClientEndpoint(
 		});
 	}
 	// Never return @internal client_secret
-	if (client?.clientSecret) {
-		client.clientSecret = undefined;
-	}
-	return schemaToOAuth(client, false);
+	const res = schemaToOAuth(client);
+	res.client_secret = undefined;
+	return res;
 }
 
 export async function getClientsEndpoint(
@@ -46,8 +45,9 @@ export async function getClientsEndpoint(
 			.then((res) => {
 				if (!res) return null;
 				return res.map((v) => {
-					if (v.clientSecret) v.clientSecret = undefined;
-					return schemaToOAuth(databaseToSchema(v), false);
+					const res = schemaToOAuth(databaseToSchema(v));
+					res.client_secret = undefined;
+					return res;
 				});
 			});
 		return dbClients;
@@ -60,8 +60,9 @@ export async function getClientsEndpoint(
 			.then((res) => {
 				if (!res) return null;
 				return res.map((v) => {
-					if (v.clientSecret) v.clientSecret = undefined;
-					return schemaToOAuth(databaseToSchema(v), false);
+					const res = schemaToOAuth(databaseToSchema(v));
+					res.client_secret = undefined;
+					return res;
 				});
 			});
 		return dbClients;
@@ -88,7 +89,7 @@ export async function deleteClientEndpoint(
 		model: opts.schema?.oauthClient?.modelName ?? "oauthClient",
 		where: [
 			{
-				field: "id",
+				field: "clientId",
 				value: ctx.params.id,
 			},
 		],
@@ -131,21 +132,27 @@ export async function updateClientEndpoint(
 			model: opts.schema?.oauthClient?.modelName ?? "oauthClient",
 			where: [
 				{
-					field: "id",
+					field: "clientId",
 					value: ctx.params.id,
 				},
 			],
 			update: schemaToDatabase(oauthToSchema(updates)),
 		})
 		.then((res) => {
-			return databaseToSchema(res as DatabaseClient);
+			if (!res) return null;
+			return databaseToSchema(res);
 		});
+	if (!updatedClient) {
+		throw new APIError("INTERNAL_SERVER_ERROR", {
+			error_description: "unable to update client",
+			error: "invalid_client",
+		});
+	}
 
 	// Never return @internal client_secret
-	if (updatedClient?.clientSecret) {
-		updatedClient.clientSecret = undefined;
-	}
-	return schemaToOAuth(updatedClient, false);
+	const res = schemaToOAuth(updatedClient);
+	res.client_secret = undefined;
+	return res;
 }
 
 export async function rotateClientSecretEndpoint(
@@ -182,28 +189,36 @@ export async function rotateClientSecretEndpoint(
 	const storedClientSecret = clientSecret
 		? await storeClientSecret(ctx, opts, clientSecret)
 		: undefined;
-
 	const updatedClient = await ctx.context.adapter
 		.update<DatabaseClient>({
 			model: opts.schema?.oauthClient?.modelName ?? "oauthClient",
 			where: [
 				{
-					field: "id",
+					field: "clientId",
 					value: ctx.params.id,
 				},
 			],
-			update: {
-				client_secret: storedClientSecret,
-			},
+			update: schemaToDatabase(
+				oauthToSchema({
+					...schemaToOAuth(client),
+					client_secret: storedClientSecret,
+				}),
+			),
 		})
 		.then((res) => {
-			return databaseToSchema(res as DatabaseClient);
+			if (!res) return null;
+			return databaseToSchema(res);
 		});
-	return schemaToOAuth(
-		{
-			...updatedClient,
-			clientSecret: (opts.clientSecretPrefix ?? "") + clientSecret,
-		},
-		false,
-	);
+
+	if (!updatedClient) {
+		throw new APIError("INTERNAL_SERVER_ERROR", {
+			error_description: "unable to update client",
+			error: "invalid_client",
+		});
+	}
+
+	return schemaToOAuth({
+		...updatedClient,
+		clientSecret: (opts.clientSecretPrefix ?? "") + clientSecret,
+	});
 }

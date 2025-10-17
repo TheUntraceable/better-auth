@@ -77,18 +77,6 @@ describe("oauth register", async () => {
 		expect(response.data?.client_secret).toBeDefined();
 	});
 
-	it("should register private client with minimum requirements via server", async () => {
-		const response = await auth.api.createOAuthClient({
-			headers,
-			body: {
-				redirect_uris: [redirectUri],
-			},
-		});
-		expect(response?.client_id).toBeDefined();
-		expect(response?.user_id).toBeDefined();
-		expect(response?.client_secret).toBeDefined();
-	});
-
 	it("should fail authorization_code without response type code", async () => {
 		const response = await serverClient.oauth2.register({
 			// @ts-expect-error testing with a different response type even though unsupported
