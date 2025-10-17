@@ -160,7 +160,14 @@ export async function verifyAccessToken(
 			logger.error(
 				`Jwks failed: ${introspectError.message ?? introspectError.statusText}`,
 			);
-		if (!introspect || !introspect?.active) throw new APIError("FORBIDDEN");
+		if (!introspect)
+			throw new APIError("INTERNAL_SERVER_ERROR", {
+				message: "introspection failed",
+			});
+		if (!introspect.active)
+			throw new APIError("UNAUTHORIZED", {
+				message: "token inactive",
+			});
 		// Verifies payload using verify options (token valid through introspect)
 		try {
 			const unsecuredJwt = new UnsecuredJWT(introspect).encode();
